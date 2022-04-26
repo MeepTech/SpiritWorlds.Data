@@ -4,28 +4,28 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SpiritWorlds.Data {
+/*namespace SpiritWorlds.Data {
   public partial class Scape {
     public partial class History {
 
       /// <summary>
       /// Generators are used to build Eras and chunks of history by advancing and assigning plot trees.
       /// </summary>
-      public partial class Generator : Model<Generator, Generator.Type>.WithComponents {
+      //public partial class Generator : Model<Generator, Generator.Type>.WithComponents {
 
         /*List<PlotTree.GlobalLevel.Type> _potentialGlobalTrees = new();
         List<PlotTree.IndividualLevel.Type> _potentialNpcTrees = new();
         List<(PlotTree.IndividualLevel.Type, float)> _potentialNpcTreesThatHaveMetTheThreshold = new();
         Dictionary<PlotTree.Type, int> _potentialTreeCounts = new();*/
-        Generator() {}
+        /*Generator() {}
 
-        internal History _processTick(History currentHistory) {
+        internal History _processTick(History currentHistory, Scape.Moment.Delta? timeSinceLastTick) {
           foreach (PerTickManagementComponent component in Components.Values) {
-            component.ProcessForCurrentTick(currentHistory);
+            component.ProcessForCurrentTick(currentHistory, timeSinceLastTick);
           }
 
           return currentHistory;
-        }
+        }*/
 
         /*internal History _processTickForNPC(Entity npc, History currentHistory) {
           // try to start global trees:
@@ -44,7 +44,7 @@ namespace SpiritWorlds.Data {
           return currentHistory;
         }*/
 
-        /// <summary>
+        /*/// <summary>
         /// A type of plot tree
         /// </summary>
         public partial class Type : Archetype<Generator, Generator.Type> {
@@ -56,3 +56,4 @@ namespace SpiritWorlds.Data {
     }
   }
 }
+*/

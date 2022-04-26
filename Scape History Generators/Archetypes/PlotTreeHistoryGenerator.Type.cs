@@ -1,43 +1,41 @@
 ﻿using Meep.Tech.Data;
 using System.Collections.Generic;
-using System.Linq;
+using static Meep.Tech.Data.Configuration.Loader.Settings;
 
 namespace SpiritWorlds.Data {
-  public partial class Scape {
-    public partial class History {
-      public partial class Generator {
-        public partial class Type {
+  public static partial class Scapes {
+    public partial class Histories {
+      public partial class Generators {
+        public partial class PlotTreeHistoryGenerator {
+          internal List<PlotTree.Type> _potentialTrees { get; private set; } = new();
+          internal Dictionary<PlotTree.Type, int> _potentialTreeCounts { get; private set; } = new();
 
           /// <summary>
           /// Used to hold data for different kinds of plot trees that can be added during world history gen.
           /// </summary>
-          /// <typeparam name="TComponentBase"></typeparam>
-          public abstract class PlotTreesDataComponent<TModelComponentBase, TArchetypeComponentBase> 
-            : Archetype.IComponent<TArchetypeComponentBase>,
-              Archetype.IComponent.IIsRestrictedTo<PlotTree.Type>,
-              Archetype.ILinkedComponent<TModelComponentBase>,
-              IComponent.IUseDefaultUniverse
-            where TArchetypeComponentBase : Archetype.IComponent<TArchetypeComponentBase>
-            where TModelComponentBase : Scape.History.Generator.PerTickManagementComponent<TModelComponentBase> 
-          {
+          [Branch]
+          public new abstract class Type : Scape.History.Generator.Type {
 
             /// <summary>
             /// An initializer for a plot tree
             /// </summary>
             /// <param name="typeToBuild">The type of plot tree being made</param>
-            /// <param name="parentGenerator">The generator building the plot trees</param>
+            /// <param name="generator">The generator building the plot trees</param>
             /// <param name="index">the index of this plot tree of this kind that was produced this same tic. (0 if this is the first/only plot tree of this kind produced this tic)</param>
             /// <returns></returns>
-            public delegate PlotTree PlotTreeInitializer(PlotTree.Type typeToBuild, Generator parentGenerator, int index);
+            public delegate PlotTree PlotTreeInitializer(PlotTree.Type typeToBuild, Scape.History.Generator generator, int index);
+
+            #region Overrideable Archetype Properties
 
             /// <summary>
             /// Plot trees added to the generated generator type on init.
             /// You can use PlotTreeInitializationOverrides to override the default initializer per type, 
-            ///   as well as PlotTreePerGeneratorLimits and PlotTreeInitializationMultiplierOverrides to modify how numerous/common the plot tree can be in the world generation
+            ///   as well as PlotTreePerGeneratorLimits and PlotTreeInitializationMultiplierOverrides to modify how numerous/common the plot tree can be in the world generation.
             /// </summary>
-            public virtual IEnumerable<PlotTree.Type> DefaultPlotTreeTypes {
-              get;
-            } = Enumerable.Empty<PlotTree.Type>();
+            public virtual IEnumerable<PlotTree.Type> DefaultPlotTreeTypes {get => _DefaultPlotTreeTypes ?? new List<PlotTree.Type>();}
+            /** <summary> The backing field used to initialize and override the initail value of DefaultPlotTreeTypes. You can this syntax to override or add to the base initial value: '=> _DefaultPlotTreeTypes ??= base.DefaultPlotTreeTypes.Append(...' </summary> **/
+            protected IEnumerable<PlotTree.Type> _DefaultPlotTreeTypes { get => _defaultPlotTreeTypes; set => _defaultPlotTreeTypes = value; }
+            IEnumerable<PlotTree.Type> _defaultPlotTreeTypes;
 
             /// <summary>
             /// Plot tree types that are initialized with multiple individual trees allowed at a time.
@@ -48,7 +46,8 @@ namespace SpiritWorlds.Data {
             } /** <summary> The backing field used to initialize and override the initail value of PlotTreeInitializationMultiplierOverrides. 
               * You can this syntax to override or add to the base initial value:
               *   '=> _PlotTreeInitializationMultiplierOverrides ??= base.PlotTreeInitializationMultiplierOverrides.Append(...' </summary> 
-              **/ protected Dictionary<PlotTree.Type, int> _PlotTreeInitializationMultiplierOverrides {
+              **/
+            protected Dictionary<PlotTree.Type, int> _PlotTreeInitializationMultiplierOverrides {
               get => _plotTreeInitializationMultiplierOverrides; set => _plotTreeInitializationMultiplierOverrides = value;
             } Dictionary<PlotTree.Type, int> _plotTreeInitializationMultiplierOverrides;
 
@@ -62,7 +61,8 @@ namespace SpiritWorlds.Data {
             } /** <summary> The backing field used to initialize and override the initail value of PlotTreePerGeneratorLimits. 
               * You can this syntax to override or add to the base initial value:
               *   '=> _PlotTreePerGeneratorLimits ??= base.PlotTreePerGeneratorLimits.Append(...' </summary> 
-              **/ protected Dictionary<PlotTree.Type, int> _PlotTreePerGeneratorLimits {
+              **/
+            protected Dictionary<PlotTree.Type, int> _PlotTreePerGeneratorLimits {
               get => _plotTreePerGeneratorLimits; set => _plotTreePerGeneratorLimits = value;
             } Dictionary<PlotTree.Type, int> _plotTreePerGeneratorLimits;
 
@@ -75,9 +75,21 @@ namespace SpiritWorlds.Data {
             } /** <summary> The backing field used to initialize and override the initail value of PlotTreeInitializationMultiplierOverrides. 
               * You can this syntax to override or add to the base initial value:
               *   '=> _PlotTreeInitializationMultiplierOverrides ??= base.PlotTreeInitializationMultiplierOverrides.Append(...' </summary> 
-              **/  protected Dictionary<PlotTree.Type, PlotTreeInitializer> _PlotTreeInitializationOverrides {
+              **/
+            protected Dictionary<PlotTree.Type, PlotTreeInitializer> _PlotTreeInitializationOverrides {
               get => _plotTreeInitializationOverrides; set => _plotTreeInitializationOverrides = value;
             } Dictionary<PlotTree.Type, PlotTreeInitializer> _plotTreeInitializationOverrides;
+
+            #endregion
+
+            protected Type(Archetype.Identity id) 
+              : base(id) { }
+
+            protected static List<PlotTree.Type> GetPotentialTreesFrom(PlotTreeHistoryGenerator generator)
+              => generator._potentialTrees;
+
+            protected static Dictionary<PlotTree.Type, int> GetPotentialTreeCountsFrom(PlotTreeHistoryGenerator generator)
+              => generator._potentialTreeCounts;
           }
         }
       }

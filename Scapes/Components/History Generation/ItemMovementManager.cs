@@ -17,7 +17,7 @@ namespace SpiritWorlds.Data.Components {
             : base(builder) { } ItemMovementManager() 
             : base() { }
 
-          protected internal override Scape.History ProcessForCurrentTick(Scape.History currentHistory) {
+          protected internal override Scape.History ProcessForCurrentTick(Scape.History currentHistory, Scape.Moment.Delta? timeSinceLastTick) {
             throw new System.NotImplementedException();
           }
         }

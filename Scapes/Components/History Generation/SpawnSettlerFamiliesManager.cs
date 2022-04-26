@@ -1,4 +1,5 @@
-﻿using Meep.Tech.Data;
+﻿using Meep.Tech.Collections.Generic;
+using Meep.Tech.Data;
 using System.Collections.Generic;
 
 namespace SpiritWorlds.Data.Components {
@@ -16,55 +17,62 @@ namespace SpiritWorlds.Data.Components {
           /// <summary>
           /// max initial settler families to place
           /// </summary>
-          public virtual int MaxInitialSettlerFamiliesCount {
+          public int MaxInitialSettlerFamiliesCount {
             get;
-          }
+            init;
+          } = 15;
 
           /// <summary>
           /// min initial settler families to place
           /// </summary>
-          public virtual int MinInitialSettlerFamiliesCount {
+          public int MinInitialSettlerFamiliesCount {
             get;
-          }
+            init;
+          } = 5;
 
           /// <summary>
           /// max initial settler familiy size
           /// </summary>
-          public virtual int MaxInitialSettlerFamililySizeCount {
+          public int MaxInitialSettlerFamililySizeCount {
             get;
-          }
+            init;
+          } = 12;
 
           /// <summary>
           /// min initial settler familiy size
           /// </summary>
-          public virtual int MinInitialSettlerFamililySizeCount {
+          public int MinInitialSettlerFamililySizeCount {
             get;
-          }
-
-          /// <summary>
-          /// Initial settler families to place
-          /// </summary>
-          public virtual int InitialSettlerFamiliesCount {
-            get;
-          }
+            init;
+          } = 3;
 
           /// <summary>
           /// The builder used to make settler families.
           /// </summary>
-          public Entity.Family.Type FamilyBuilder {
+          public IEnumerable<Data.Entities.Creature.Type> PotentialSettlerTypes {
             get;
           }
 
-          SpawnSettlerFamiliesManager(IBuilder builder) 
-            : base(builder) {
-            FamilyBuilder = builder.GetParam<Entity.Family.Type>(nameof(FamilyBuilder));
-          } SpawnSettlerFamiliesManager() 
-            : base() { }
+          public SpawnSettlerFamiliesManager(IEnumerable<Data.Entities.Creature.Type> potentialSettlerTypes) {
+            PotentialSettlerTypes = potentialSettlerTypes;
+          }
 
-          protected internal override Scape.History ProcessForCurrentTick(Scape.History currentHistory) {
+          /*SpawnSettlerFamiliesManager(IBuilder builder) 
+            : base(builder) {
+              PotentialSettlerTypes 
+                = builder.GetAndValidateParamAs<IEnumerable<Data.Entities.Creature.Type>>(nameof(PotentialSettlerTypes));
+              FamilyBuilder 
+                = builder.GetParam<Entity.Family.Type>(
+                  nameof(FamilyBuilder),
+                  Entity.Family.Type.Base.Archetype as Entity.Family.Type
+                );
+          } SpawnSettlerFamiliesManager() 
+            : base() { }*/
+
+          protected internal override Scape.History ProcessForCurrentTick(Scape.History currentHistory, Scape.Moment.Delta? timeSinceLastTick) {
             // initalization:
             if (currentHistory.CurrentMoment == currentHistory.FirstMoment) {
-              Dictionary<string, IEnumerable<Entity>> families = new();
+              Dictionary<string, Entity.Family> families = new();
               // get how many families we should initially spawn at world creation
               for (
                 int familyIndex = 0;
@@ -72,30 +80,65 @@ namespace SpiritWorlds.Data.Components {
                 familyIndex++
               ) {
                 // make each family
-                string familyName = Meep.Tech.Noise.RNG.GenerateRandomNewWord(
-                  currentHistory.Scape.SeedBasedRandomizer.Next(4, 12),
-                  currentHistory.Scape.SeedBasedRandomizer
-                );
-
-                // generate the family members.
-                Entity.Family family = FamilyBuilder.Make(familyName);
-                for (
-                  int memberOfTheFamilyIndex = 0;
-                  memberOfTheFamilyIndex < currentHistory.Scape.SeedBasedRandomizer.Next(MinInitialSettlerFamililySizeCount, MaxInitialSettlerFamililySizeCount);
-                  memberOfTheFamilyIndex++
-                ) {
-                  family.GenerateNewMember(currentHistory.Scape.SeedBasedRandomizer);
-                }
-
-                // collect all the families and members
-                families.Add(familyName, family);
+                Entity.Family family = _generateNewSettlerFamily(currentHistory);
+                families.Add(family.Name, family);
               }
-            } // after that, small random spawn chances:
+            } 
+            
+            // after that, small random spawn chances every few years:
             else {
 
             }
 
             return currentHistory;
+          }
+
+          Entity.Family _generateNewSettlerFamily(Scape.History currentHistory) {
+            /// make a new family name.
+            string familyName = Meep.Tech.Noise.RNG.GenerateRandomNewWord(
+              currentHistory.Scape.SeedBasedRandomizer.Next(4, 12),
+              currentHistory.Scape.SeedBasedRandomizer
+            );
+
+            // generate the family members.
+            Entity.Family family = (Entity.Family.Type.Base.Archetype as Entity.Family.Type).Make(familyName);
+            for (
+              int memberOfTheFamilyIndex = 0;
+              memberOfTheFamilyIndex < currentHistory.Scape.SeedBasedRandomizer.Next(MinInitialSettlerFamililySizeCount, MaxInitialSettlerFamililySizeCount);
+              memberOfTheFamilyIndex++
+            ) {
+              Entity newFamilyMember = PotentialSettlerTypes
+                .RandomEntry(currentHistory.Scape.SeedBasedRandomizer)
+                .Make(
+                  (
+                    nameof(Entity.Name),
+                    Meep.Tech.Noise.RNG.GenerateRandomNewWord(
+                      currentHistory.Scape.SeedBasedRandomizer.Next(4, 12),
+                      currentHistory.Scape.SeedBasedRandomizer
+                    )
+                  ),
+                  (
+                    nameof(Data.Entities.Denizen.Surname),
+                    familyName
+                  ),
+                  (
+                    nameof(Data.Components.Entities.History.MomentOfCreation),
+                    new Scape.Moment (currentHistory.CurrentMoment.ValueInYears
+                        // TODO: add age randomizer options.
+                        - (currentHistory.Scape.SeedBasedRandomizer.Next(800, 6500) / 100.0f)
+                    )
+                  )
+                );
+
+              if (family.RootMember is not null) {
+                family.AddFamilyMember(newFamilyMember);
+              }
+              else {
+                family.Start(newFamilyMember);
+              }
+            }
+
+            return family;
           }
         }
       }

@@ -1,4 +1,5 @@
-﻿using Meep.Tech.Geometry;
+﻿using Meep.Tech.Data;
+using Meep.Tech.Geometry;
 using System;
 using System.Collections.Generic;
 
@@ -7,13 +8,30 @@ namespace SpiritWorlds.Data {
   /// <summary>
   /// A generated world in SpiritWorlds
   /// </summary>
-  public partial class Scape {
+  public partial class Scape : Model<Scape, Scape.Type> {
+    public class Type : Archetype<Scape, Scape.Type> {
+      public static Identity Basic {
+        get;
+      } = new Identity();
+
+      protected Type(Archetype.Identity id) 
+        : base(id ?? ) {}
+    }
 
     /// <summary>
     /// A date and Time within a world within a scape.
     /// </summary>
     public struct Moment {
-      public double _valueInYears;
+      public double ValueInYears
+        => _valueInYears;
+      double _valueInYears;
+
+      /// <summary>
+      /// Make a moment in the simplest way possible.
+      /// </summary>
+      public Moment(double currentMomentInYears) {
+        _valueInYears = currentMomentInYears;
+      }
 
       public override bool Equals(object obj)
         => obj is Moment otherM && otherM == this;
@@ -21,6 +39,53 @@ namespace SpiritWorlds.Data {
         => a._valueInYears == b._valueInYears;
       public static bool operator !=(Moment a, Moment b)
         => a._valueInYears != b._valueInYears;
+      public static bool operator >(Moment a, Moment b)
+        => a.ValueInYears > b.ValueInYears;
+      public static bool operator <(Moment a, Moment b)
+        => a.ValueInYears < b.ValueInYears;
+      public static bool operator >=(Moment a, Moment b)
+        => a.ValueInYears >= b.ValueInYears;
+      public static bool operator <=(Moment a, Moment b)
+        => a.ValueInYears <= b.ValueInYears;
+      public static Moment operator +(Moment a, Delta b)
+        => new(a.ValueInYears + b.InYears);
+      public static Moment operator -(Moment a, Delta b)
+        => new(a.ValueInYears - b.InYears);
+
+      /// <summary>
+      /// A span/change/delta of time. Used to modify Moments as well.
+      /// </summary>
+      public struct Delta {
+        public double InYears
+          => _valueInYears;
+        double _valueInYears;
+
+        /// <summary>
+        /// Make a Delta in the simplest way possible.
+        /// </summary>
+        public Delta(double spanInYears) {
+          _valueInYears = spanInYears;
+        }
+
+        public override bool Equals(object obj)
+          => obj is Delta otherM && otherM == this;
+        public static bool operator ==(Delta a, Delta b)
+          => a._valueInYears == b._valueInYears;
+        public static bool operator !=(Delta a, Delta b)
+          => a._valueInYears != b._valueInYears;
+        public static bool operator >=(Delta a, Delta b)
+          => a.InYears >= b.InYears;
+        public static bool operator <=(Delta a, Delta b)
+          => a.InYears <= b.InYears;
+        public static bool operator >(Delta a, Delta b)
+          => a.InYears > b.InYears;
+        public static bool operator <(Delta a, Delta b)
+          => a.InYears < b.InYears;
+        public static Delta operator +(Delta a, Delta b)
+          => new(a.InYears + b.InYears);
+        public static Delta operator -(Delta a, Delta b)
+          => new(a.InYears - b.InYears);
+      }
     }
 
     /// <summary>

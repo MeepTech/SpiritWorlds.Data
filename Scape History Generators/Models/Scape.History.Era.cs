@@ -14,7 +14,7 @@ namespace SpiritWorlds.Data {
         /// <summary>
         /// How many years long this era is.
         /// </summary>
-        public float Length {
+        public Scape.Moment.Delta Length {
           get;
         }
 

@@ -1,15 +1,16 @@
 ﻿using Meep.Tech.Collections.Generic;
 using Meep.Tech.Data;
+using SpiritWorlds.Data.Components;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SpiritWorlds.Data {
-
   public partial class Entity {
 
     /// <summary>
     /// A family made of entities.
+    /// TODO: does this need to be an xbam model?
     /// </summary>
     public partial class Family : Model<Family, Family.Type> {
 
@@ -117,6 +118,7 @@ namespace SpiritWorlds.Data {
       public virtual void Start(Entity rootParent, Entity routeSpouse = null) {
         RootMember = rootParent;
         _relations[RootMember] = new();
+        RootMember._addToFamily(this);
 
         if (routeSpouse != null) {
           AddFamilyMember(routeSpouse, Relations.Spouse, RootMember);
@@ -128,14 +130,67 @@ namespace SpiritWorlds.Data {
       /// (optional) you can provide a relationship with an existing family member already, if not, one will be generated.
       /// </summary>
       public virtual Relationship AddFamilyMember(Entity newFamilyMember, Relations? asRelationship = null, Entity ofExistingFamilyMember = null) {
+        bool relationshipIsMaleable = false;
         if (asRelationship is null) {
+          relationshipIsMaleable = true;
           asRelationship = Enum.GetValues(typeof(Family.Relations)).Cast<Family.Relations>().RandomEntry(SeedBasedRandomizer);
         }
+
         if (ofExistingFamilyMember is null) {
           ofExistingFamilyMember = Members.RandomEntry(SeedBasedRandomizer);
+          /// Make sure ages make sense.
+          if (asRelationship == Relations.Child) {
+            if (newFamilyMember.GetAge() > ofExistingFamilyMember.GetAge()) {
+              ofExistingFamilyMember = Members.Where(fm =>
+                fm.GetAge() > newFamilyMember.GetAge() + 8
+              ).RandomEntry(SeedBasedRandomizer);
+            }
+          }
+
+          if (ofExistingFamilyMember == null) {
+            if (relationshipIsMaleable) {
+              asRelationship = Enum.GetValues(typeof(Family.Relations)).Cast<Family.Relations>()
+                .Except(new[] { Family.Relations.Child })
+                .RandomEntry(SeedBasedRandomizer);
+            }
+            else {
+              throw new ArgumentException($"Cannot have a child older than their parent.");
+            }
+          }
+
+          if (asRelationship == Relations.Parent) {
+            if (newFamilyMember.GetAge() > ofExistingFamilyMember.GetAge()) {
+              ofExistingFamilyMember = Members.Where(fm =>
+                fm.GetAge() > newFamilyMember.GetAge() + 8
+              ).RandomEntry(SeedBasedRandomizer);
+            }
+
+            if (ofExistingFamilyMember == null) {
+              if (relationshipIsMaleable) {
+                asRelationship = Enum.GetValues(typeof(Family.Relations)).Cast<Family.Relations>()
+                  .Except(new[] { Family.Relations.Parent, Family.Relations.Child })
+                  .RandomEntry(SeedBasedRandomizer);
+                ofExistingFamilyMember = Members.RandomEntry(SeedBasedRandomizer);
+              }
+              else {
+                throw new ArgumentException($"Cannot have a parent younger than their child, or a child older than their parent.");
+              }
+            }
+          } else ofExistingFamilyMember = Members.RandomEntry(SeedBasedRandomizer);
+        } else {
+          if (asRelationship == Relations.Child) {
+            if(newFamilyMember.GetAge() > ofExistingFamilyMember.GetAge()) {
+              throw new ArgumentException($"Cannot have a child older than their parent.");
+            }
+          }
+          if (asRelationship == Relations.Parent) {
+            if (newFamilyMember.GetAge() > ofExistingFamilyMember.GetAge()) {
+              throw new ArgumentException($"Cannot have a parent younger than their child.");
+            }
+          }
         }
 
-        // add the root and reverse relationship:
+        // add the root and reverse relationships:
         _relations.Add(newFamilyMember, new() {
           { asRelationship.Value.GetPairedType(), new() { ofExistingFamilyMember } }
         });
@@ -145,54 +200,53 @@ namespace SpiritWorlds.Data {
         Relationship newRelationship = new(newFamilyMember, asRelationship.Value, ofExistingFamilyMember);
         _addOtherDirectRelationships(newRelationship);
 
+        newFamilyMember._addToFamily(this);
         return newRelationship;
       }
 
       void _addOtherDirectRelationships(Relationship newRelationship) {
         // if this is a new child of something
-        if (newRelationship.Relation == Relations.Child) {
-          // add siblings
-          foreach (Relationship parentSiblingRelationship in GetDirectRelationships(newRelationship.Relative, Relations.Child)) {
-            if (parentSiblingRelationship.CurrentEntity.Id != newRelationship.CurrentEntity.Id) {
+        switch (newRelationship.Relation) {
+          case Relations.Child:
+            // add siblings
+            foreach (Relationship parentSiblingRelationship in GetDirectRelationships(newRelationship.Relative, Relations.Child)) {
+              if (parentSiblingRelationship.CurrentEntity.Id != newRelationship.CurrentEntity.Id) {
+                Entity currentEntity = newRelationship.CurrentEntity;
+                Entity sibling = parentSiblingRelationship.Relative;
+                _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Sibling, sibling);
+              }
+            }
+            // add other parents
+            foreach (Relationship spousalRelationshipToParent in GetDirectRelationships(newRelationship.Relative, Relations.Spouse)) {
               Entity currentEntity = newRelationship.CurrentEntity;
-              Entity sibling = parentSiblingRelationship.Relative;
-              _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Sibling, sibling);
+              Entity otherParent = spousalRelationshipToParent.Relative;
+              _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Child, otherParent);
             }
-          }
-          // add other parents
-          foreach (Relationship spousalRelationshipToParent in GetDirectRelationships(newRelationship.Relative, Relations.Spouse)) {
-            Entity currentEntity = newRelationship.CurrentEntity;
-            Entity otherParent = spousalRelationshipToParent.Relative;
-            _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Child, otherParent);
-          }
-        } // if this is a new parent of something.
-        else if (newRelationship.Relation == Relations.Parent) {
-          // no other connections needed
-        }// if this is the sibling of something
-        else if (newRelationship.Relation == Relations.Sibling) {
-          // add parents and siblings shared by the current sibling
-          HashSet<string> existingSiblings = new() { newRelationship.Relative.Id };
-          HashSet<string> existingParents = new();
-          foreach (Relationship siblingRelationship in GetDirectRelationships(newRelationship.Relative)) {
-            Entity currentEntity = newRelationship.CurrentEntity;
-            if (siblingRelationship.Relation == Relations.Sibling && !existingSiblings.Contains(siblingRelationship.Relative.Id)) {
-              Entity sibling = siblingRelationship.Relative;
-              _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Sibling, sibling);
-              existingSiblings.Add(siblingRelationship.Relative.Id);
-            } else if (siblingRelationship.Relation == Relations.Parent && !existingParents.Contains(siblingRelationship.Relative.Id)) {
-              Entity parent = siblingRelationship.Relative;
-              _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Child, parent);
-              existingParents.Add(siblingRelationship.Relative.Id);
-            }
-          }
-          // add other siblings
-          foreach (Relationship parentSiblingRelationship in GetDirectRelationships(newRelationship.Relative, Relations.Child)) {
-            if (parentSiblingRelationship.CurrentEntity.Id != newRelationship.CurrentEntity.Id) {
+
+            break;
+          // if this is a new parent of something.
+          case Relations.Sibling:
+            // add parents and siblings shared by the current sibling
+            HashSet<string> existingSiblings = new() { newRelationship.Relative.Id };
+            HashSet<string> existingParents = new();
+            foreach (Relationship siblingRelationship in GetDirectRelationships(newRelationship.Relative)) {
               Entity currentEntity = newRelationship.CurrentEntity;
-              Entity sibling = parentSiblingRelationship.Relative;
-              _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Sibling, sibling);
+              if (siblingRelationship.Relation == Relations.Sibling && !existingSiblings.Contains(siblingRelationship.Relative.Id)) {
+                Entity sibling = siblingRelationship.Relative;
+                _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Sibling, sibling);
+                existingSiblings.Add(siblingRelationship.Relative.Id);
+              }
+              else if (siblingRelationship.Relation == Relations.Parent && !existingParents.Contains(siblingRelationship.Relative.Id)) {
+                Entity parent = siblingRelationship.Relative;
+                _addRelationshipToBothExistingFamilyMembers(currentEntity, Relations.Child, parent);
+                existingParents.Add(siblingRelationship.Relative.Id);
+              }
             }
-          }
+
+            break;
+          case Relations.Spouse:
+          case Relations.Parent:
+            break;
         }
       }
 
@@ -203,73 +257,6 @@ namespace SpiritWorlds.Data {
         _addRelationshipToExistingFamilyMember(forwardCurrentEntity, forwardRelationshipType, forwardRelatedEntity);
         _addRelationshipToExistingFamilyMember(forwardRelatedEntity, forwardRelationshipType.GetPairedType(), forwardCurrentEntity);
       }
-
-      /*void _recursivelyConnectAllOtherRelationships(Relationship relationship, HashSet<string> alreadyCalculatedRelatives = null) {
-        alreadyCalculatedRelatives ??= new() { relationship.Relative.Id};
-        foreach (Relationship adjacentRelationship in GetDirectRelationships(relationship.Relative).Where(r => !alreadyCalculatedRelatives.Contains(r.CurrentEntity.Id))) {
-          alreadyCalculatedRelatives.Add(adjacentRelationship.Relative.Id);
-          Relationship newRelationship = _triangulateNewRelationship(relationship, adjacentRelationship);
-          _addRelationshipToExistingFamilyMember(newRelationship.Relative, newRelationship.Relation.GetPairedType(), newRelationship.CurrentEntity, newRelationship.ExtraFamilialDistance);
-          _addRelationshipToExistingFamilyMember(newRelationship.CurrentEntity, newRelationship.Relation, newRelationship.Relative, newRelationship.ExtraFamilialDistance);
-          _recursivelyConnectAllOtherRelationships(newRelationship, alreadyCalculatedRelatives);
-        }
-      }
-
-      Relationship _triangulateNewRelationship(Relationship relationshipWithNewCurrentEntity, Relationship adjacentRelationshipWithExistingRelatedEntity) {
-        if (relationshipWithNewCurrentEntity.Relative.Id != adjacentRelationshipWithExistingRelatedEntity.CurrentEntity.Id) {
-          throw new ArgumentException($"The intermediate entity is not the same for the given relationships. Cannot triangulate a new relationship between them");
-        }
-
-        Entity currentEntity = relationshipWithNewCurrentEntity.CurrentEntity;
-        Entity relatedEntity = relationshipWithNewCurrentEntity.Relative;
-        Relations newEntitysRelationshipWithSharedEntity = relationshipWithNewCurrentEntity.Relation;
-        Relations sharedEntitysRelationshipWithExistingEntity = adjacentRelationshipWithExistingRelatedEntity.Relation;
-        Relations newEntitysRelationshipWithExistingEntity;
-        int extraFamilyDistance;
-
-        // if the shared entity is the x of the new related entity.
-        switch (sharedEntitysRelationshipWithExistingEntity) {
-          case Relations.Parent:
-            // if the new entity is the y of the x of the existing entity.
-            switch (newEntitysRelationshipWithSharedEntity) {
-              case Relations.Spouse:
-                newEntitysRelationshipWithExistingEntity = Relations.Parent;
-                extraFamilyDistance = relationshipWithNewCurrentEntity.ExtraFamilialDistance;
-                break;
-              case Relations.Cousin:
-                newEntitysRelationshipWithExistingEntity = Relations.Pibling;
-                extraFamilyDistance = relationshipWithNewCurrentEntity.ExtraFamilialDistance + 1;
-                break;
-              case Relations.Parent:
-                newEntitysRelationshipWithExistingEntity = Relations.Parent;
-                extraFamilyDistance = relationshipWithNewCurrentEntity.ExtraFamilialDistance + 1;
-                break;
-              case Relations.Child:
-                break;
-              case Relations.Sibling:
-                break;
-              case Relations.Newphew:
-                break;
-              case Relations.Pibling:
-                break;
-            }
-            break;
-          case Relations.Cousin:
-            break;
-          case Relations.Child:
-            break;
-          case Relations.Sibling:
-            break;
-          case Relations.Newphew:
-            break;
-          case Relations.Pibling:
-            break;
-          case Relations.Spouse:
-            break;
-        }
-
-        return new Relationship(newEntitysRelationshipWithExistingEntity, extraFamilyDistance, currentEntity, relatedEntity);
-      }*/
 
       void _addRelationshipToExistingFamilyMember(Entity newFamilyMember, Relations asRelationship, Entity withExistingFamilyMember) {
         if (asRelationship is Relations.Spouse) {

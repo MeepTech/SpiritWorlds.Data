@@ -23,7 +23,7 @@ namespace SpiritWorlds.Data.Components {
             : base(builder) { }  NpcPlotTreeManager()
             : base() { }
 
-          protected internal override Scape.History ProcessForCurrentTick(Scape.History currentHistory) {
+          protected internal override Scape.History ProcessForCurrentTick(Scape.History currentHistory, Scape.Moment.Delta? timeSinceLastTick) {
             _progressActivePlots(currentHistory);
             _refillMissingPotentialPlots();
             _tryToStartPlotsFromPotentialPlots(currentHistory);

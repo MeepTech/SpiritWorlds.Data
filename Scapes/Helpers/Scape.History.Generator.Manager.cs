@@ -1,10 +1,10 @@
 ﻿using Meep.Tech.Collections.Generic;
 using System.Collections.Generic;
 using System.Linq;
-
+/* 
 namespace SpiritWorlds.Data {
   public partial class Scape {
-    public partial class History {
+   public partial class History {
       public partial class Generator {
 
         /// <summary>
@@ -39,15 +39,14 @@ namespace SpiritWorlds.Data {
           /// <summary>
           /// Generate a history with a set of generators.
           /// </summary>
-          public static History Run(History onHistory, double forLengthOfTime_inYears, IEnumerable<Generator> withGenerators, double withTickLength_inYears = 1) {
-            for (double currentYear = onHistory.FirstMoment._valueInYears; currentYear < forLengthOfTime_inYears; currentYear += withTickLength_inYears) {
-
+          public static History Run(History onHistory, double forLengthOfTime_inYears, IEnumerable<Generator> withGenerators, Scape.Moment.Delta withTickLength = 1) {
+            for (double currentYear = onHistory.FirstMoment.ValueInYears; currentYear < forLengthOfTime_inYears; currentYear += withTickLength.InYears) {
               // process global plots
               foreach (Generator generator in withGenerators) {
-                generator._processTick(onHistory);
+                generator._processTick(onHistory, withTickLength);
               }
 
-              onHistory._currentMoment._valueInYears = currentYear;
+              onHistory._currentMoment.ValueInYears = currentYear;
             }
 
             return onHistory;
@@ -70,3 +69,4 @@ namespace SpiritWorlds.Data {
     }
   }
 }
+   */

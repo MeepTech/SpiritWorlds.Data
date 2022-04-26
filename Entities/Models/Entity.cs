@@ -7,6 +7,7 @@ namespace SpiritWorlds.Data {
   /// </summary>
   public partial class Entity 
     : Model<Entity, Entity.Type>.WithComponents,
+      IWriteableComponentStorage,
       IModel.IUseDefaultUniverse,
       ICached<Entity>
   {
